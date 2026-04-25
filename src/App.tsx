@@ -305,7 +305,7 @@ function RebarCalculator({ className }: { className?: string }) {
           <PropertyBox label="معاير المرونة (Es)" valueBase={calcValues.Es} type="stress" themeColor="blue" equation="200,000 MPa (N/mm²)" forceUnit={inputUnit} />
           <PropertyBox label="معاير القص (G)" valueBase={calcValues.G} type="stress" themeColor="blue" equation="G = Es / 2(1+v)" forceUnit={inputUnit} />
           <div className="grid grid-cols-2 gap-4">
-            <PropertyBox label="كثافة الحديد (γ)" valueBase={calcValues.density} type="density" decimals={2} themeColor="blue" equation="7.85 T/m³" />
+            <PropertyBox label="كثافة الحديد (γ)" valueBase={calcValues.density} type="density" decimals={2} themeColor="blue" equation="T/m³" />
             <PropertyBox label="نسبة بواسون (ν)" valueBase={calcValues.poisson} type="unitless" decimals={2} themeColor="blue" equation="0.3" />
           </div>
         </div>
