@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Tajawal", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer utilities {
+  body {
+    @apply bg-[#020408] text-slate-200 font-sans text-[16px] antialiased overflow-x-hidden min-h-screen relative p-0 m-0 selection:bg-cyan-500/30 selection:text-cyan-200;
+  }
+
+  .glass {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 242, 255, 0.1);
+  }
+
+  .neon-border {
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+    border: 1px solid rgba(0, 242, 255, 0.4);
+  }
+
+  .neon-border-blue {
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+  }
+
+  .neon-text {
+    text-shadow: 0 0 8px rgba(0, 242, 255, 0.6);
+    color: #00f2ff;
+  }
+  
+  .neon-text-blue {
+    text-shadow: 0 0 8px rgba(96, 165, 250, 0.6);
+    color: #93c5fd;
+  }
+
+  .neon-dot {
+    width: 8px;
+    height: 8px;
+    background: #00f2ff;
+    box-shadow: 0 0 8px #00f2ff;
+    border-radius: 50%;
+  }
+
+  .input-box {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(0, 242, 255, 0.2);
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+  }
+
+  .input-box:focus {
+    box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+    border-color: rgba(0, 242, 255, 0.6);
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.8);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 242, 255, 0.3);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 242, 255, 0.6);
+  }
+}
+
