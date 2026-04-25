@@ -3,9 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Calculator, Box, Link2, Send, MessageCircle, Layers, Copy, Check } from 'lucide-react';
+
+const STRESS_UNITS: Record<string, number> = { 
+  'MPa (N/mm²)': 1, 
+  'kN/m²': 1000, 
+  'Ton/m²': 101.97, 
+  'kg/cm²': 10.197, 
+  'kg/m²': 101970 
+};
+
+const DENSITY_UNITS: Record<string, number> = { 
+  'Ton/m³': 1, 
+  'kg/m³': 1000, 
+  'kN/m³': 1000 / 101.97 
+};
+
+const UNITLESS_UNITS: Record<string, number> = { '': 1 };
 
 function PropertyBox({ 
   label, 
@@ -13,23 +29,32 @@ function PropertyBox({
   type,
   decimals = 2,
   themeColor = 'cyan',
-  equation
+  equation,
+  forceUnit
 }: { 
   label: string, 
   valueBase: number, 
   type: 'stress' | 'density' | 'unitless',
   decimals?: number,
   themeColor?: 'cyan' | 'blue',
-  equation?: React.ReactNode
+  equation?: React.ReactNode,
+  forceUnit?: string
 }) {
-  const [unit, setUnit] = useState<string>(type === 'stress' ? 'MPa' : type === 'density' ? 'Ton/m³' : '');
-  const [copied, setCopied] = useState(false);
+  const units = type === 'stress' ? STRESS_UNITS : type === 'density' ? DENSITY_UNITS : UNITLESS_UNITS;
 
-  const units: Record<string, number> = type === 'stress' 
-    ? { 'MPa': 1, 'kN/m²': 1000, 'kg/cm²': 10.197, 'Ton/m²': 101.97 }
-    : type === 'density'
-    ? { 'Ton/m³': 1, 'kg/m³': 1000, 'kN/m³': 1000 / 101.97 }
-    : { '': 1 };
+  const [unit, setUnit] = useState<string>(
+    forceUnit && Object.keys(units).includes(forceUnit) 
+      ? forceUnit 
+      : (type === 'stress' ? 'MPa (N/mm²)' : type === 'density' ? 'Ton/m³' : '')
+  );
+
+  useEffect(() => {
+    if (forceUnit && Object.keys(units).includes(forceUnit)) {
+      setUnit(forceUnit);
+    }
+  }, [forceUnit, type]);
+
+  const [copied, setCopied] = useState(false);
 
   const multiplier = units[unit] || 1;
   const displayValue = valueBase * multiplier;
@@ -51,7 +76,7 @@ function PropertyBox({
   };
 
   return (
-    <div className={`bg-black/30 p-4 rounded-lg border border-white/5 flex flex-col justify-center items-start group transition-colors duration-300 ${isCyan ? 'hover:border-cyan-500/30' : 'hover:border-blue-500/30'}`}>
+    <div className={`h-full bg-black/30 p-4 rounded-lg border border-white/5 flex flex-col justify-between items-start group transition-colors duration-300 ${isCyan ? 'hover:border-cyan-500/30' : 'hover:border-blue-500/30'}`}>
       <div className="flex justify-between w-full items-start mb-3 gap-2">
         <span className="text-[16px] opacity-90 font-bold truncate tracking-wide">{label}</span>
         {type !== 'unitless' && (
@@ -90,12 +115,31 @@ type InputType = 'fcu' | 'fcPrime';
 
 function ConcreteCalculator({ className }: { className?: string }) {
   const [inputType, setInputType] = useState<InputType>('fcu');
+  const [inputUnit, setInputUnit] = useState<string>('MPa (N/mm²)');
   const [inputValue, setInputValue] = useState<string>('30');
+
+  const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newUnit = e.target.value;
+    const oldMult = STRESS_UNITS[inputUnit];
+    const newMult = STRESS_UNITS[newUnit];
+    
+    if (inputValue) {
+      const val = parseFloat(inputValue);
+      if (!isNaN(val)) {
+        const inMPa = val / oldMult;
+        const newDisp = inMPa * newMult;
+        setInputValue(Number(newDisp.toFixed(4)).toString());
+      }
+    }
+    setInputUnit(newUnit);
+  };
 
   const calcValues = useMemo(() => {
     const val = parseFloat(inputValue) || 0;
-    const fcu = inputType === 'fcu' ? val : val / 0.8;
-    const fcPrime = inputType === 'fcPrime' ? val : val * 0.8;
+    const valInMPa = val / (STRESS_UNITS[inputUnit] || 1);
+
+    const fcu = inputType === 'fcu' ? valInMPa : valInMPa / 0.8;
+    const fcPrime = inputType === 'fcPrime' ? valInMPa : valInMPa * 0.8;
     
     const Ec = 4700 * Math.sqrt(fcPrime);
     const poisson = 0.2;
@@ -104,7 +148,7 @@ function ConcreteCalculator({ className }: { className?: string }) {
     const density = 2.4;
 
     return { fcu, fcPrime, Ec, poisson, G, fr, density };
-  }, [inputValue, inputType]);
+  }, [inputValue, inputType, inputUnit]);
 
   return (
     <motion.section 
@@ -118,13 +162,13 @@ function ConcreteCalculator({ className }: { className?: string }) {
         <h2 className="text-xl font-bold uppercase tracking-wider text-cyan-100">خواص الخرسانة</h2>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-black/20 p-4 rounded-lg border border-white/5 gap-4">
+      <div className="flex flex-col flex-1 space-y-4">
+        <div className="flex flex-col justify-between items-start bg-black/20 p-4 rounded-lg border border-white/5 gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-[16px] font-bold opacity-90">رتبة الخرسانة</label>
-            <span className="text-[12px] opacity-70 leading-relaxed font-medium">يرجى اختيار نوع الإجهاد الذي سيتم إدخاله سواء للمكعب أو الأسطوانة</span>
+            <label className="text-[16px] font-bold opacity-90">رتبة الخرسانة ووحدة الإدخال</label>
+            <span className="text-[12px] opacity-70 leading-relaxed font-medium">يرجى اختيار نوع الإجهاد الذي سيتم إدخاله سواء للمكعب أو الأسطوانة، مع تحديد الوحدة.</span>
           </div>
-          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end sm:justify-start" dir="ltr">
+          <div className="flex flex-wrap items-center gap-2 shrink-0 w-full" dir="ltr">
             <select 
               value={inputType} 
               onChange={(e) => setInputType(e.target.value as InputType)}
@@ -137,22 +181,30 @@ function ConcreteCalculator({ className }: { className?: string }) {
               type="number" 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              className="input-box !py-1 w-[80px] text-center font-mono neon-text outline-none"
+              className="input-box !py-1 w-[100px] text-center font-mono neon-text outline-none"
               placeholder="30"
             />
-            <span className="text-xs opacity-50 font-mono">MPa</span>
+            <select 
+              value={inputUnit}
+              onChange={handleUnitChange}
+              className="input-box !py-1 text-center font-mono font-bold text-sm bg-slate-900 outline-none hover:border-cyan-500/50 appearance-none text-cyan-300 cursor-pointer"
+            >
+              {Object.keys(STRESS_UNITS).map(u => (
+                <option key={u} value={u} className="bg-slate-900">{u}</option>
+              ))}
+            </select>
           </div>
         </div>
 
         <div className="h-[1px] bg-cyan-500/20 my-5"></div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <PropertyBox label={inputType === 'fcu' ? "المقاومة المميزة للأسطوانة (fc')" : "إجهاد الكسر للمكعب (fcu)"} valueBase={inputType === 'fcu' ? calcValues.fcPrime : calcValues.fcu} type="stress" themeColor="cyan" equation={inputType === 'fcu' ? "fc' = 0.8 fcu" : "fcu = fc' / 0.8"} />
-          <PropertyBox label="معاير المرونة (Ec)" valueBase={calcValues.Ec} type="stress" themeColor="cyan" equation="Ec = 4700 √fc'" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-1">
+          <PropertyBox label={inputType === 'fcu' ? "المقاومة المميزة للأسطوانة (fc')" : "إجهاد الكسر للمكعب (fcu)"} valueBase={inputType === 'fcu' ? calcValues.fcPrime : calcValues.fcu} type="stress" themeColor="cyan" equation={inputType === 'fcu' ? "fc' = 0.8 fcu" : "fcu = fc' / 0.8"} forceUnit={inputUnit} />
+          <PropertyBox label="معاير المرونة (Ec)" valueBase={calcValues.Ec} type="stress" themeColor="cyan" equation="Ec = 4700 √fc'" forceUnit={inputUnit} />
           <PropertyBox label="نسبة بواسون (ν)" valueBase={calcValues.poisson} type="unitless" decimals={2} themeColor="cyan" />
-          <PropertyBox label="معاير القص (G)" valueBase={calcValues.G} type="stress" themeColor="cyan" equation="G = 0.43 Ec" />
-          <PropertyBox label="معامل الشد (fr)" valueBase={calcValues.fr} type="stress" themeColor="cyan" equation="fr = 0.62 √fc'" />
-          <PropertyBox label="كثافة الخرسانة" valueBase={calcValues.density} type="density" decimals={2} themeColor="cyan" />
+          <PropertyBox label="معاير القص (G)" valueBase={calcValues.G} type="stress" themeColor="cyan" equation="G = 0.43 Ec" forceUnit={inputUnit} />
+          <PropertyBox label="معامل الشد (fr)" valueBase={calcValues.fr} type="stress" themeColor="cyan" equation="fr = 0.62 √fc'" forceUnit={inputUnit} />
+          <PropertyBox label="كثافة الخرسانة (γ)" valueBase={calcValues.density} type="density" decimals={2} themeColor="cyan" />
         </div>
       </div>
     </motion.section>
@@ -160,8 +212,29 @@ function ConcreteCalculator({ className }: { className?: string }) {
 }
 
 function RebarCalculator({ className }: { className?: string }) {
+  const [inputUnit, setInputUnit] = useState<string>('MPa (N/mm²)');
   const [fy, setFy] = useState<string>('420');
   const [fu, setFu] = useState<string>('550');
+
+  const handleUnitChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newUnit = e.target.value;
+    const oldMult = STRESS_UNITS[inputUnit];
+    const newMult = STRESS_UNITS[newUnit];
+    
+    if (fy) {
+      const val = parseFloat(fy);
+      if (!isNaN(val)) {
+        setFy(Number(((val / oldMult) * newMult).toFixed(4)).toString());
+      }
+    }
+    if (fu) {
+      const val = parseFloat(fu);
+      if (!isNaN(val)) {
+        setFu(Number(((val / oldMult) * newMult).toFixed(4)).toString());
+      }
+    }
+    setInputUnit(newUnit);
+  };
 
   const calcValues = useMemo(() => {
     const Es = 200000;
@@ -184,40 +257,56 @@ function RebarCalculator({ className }: { className?: string }) {
         <h2 className="text-xl font-bold uppercase tracking-wider text-blue-100">خواص حديد التسليح</h2>
       </div>
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
+      <div className="flex flex-col flex-1 space-y-4">
+        <div className="flex flex-col justify-between items-start bg-black/20 p-4 rounded-lg border border-white/5 gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-[16px] font-bold opacity-90">وحدة الإدخال</label>
+            <span className="text-[12px] opacity-70 leading-relaxed font-medium">يرجى اختيار الوحدة لخصائص الحديد</span>
+          </div>
+          <div className="w-full flex justify-end" dir="ltr">
+            <select 
+              value={inputUnit}
+              onChange={handleUnitChange}
+              className="input-box !py-1 text-center font-mono font-bold text-sm bg-slate-900 outline-none hover:border-blue-500/50 appearance-none text-blue-300 cursor-pointer"
+            >
+              {Object.keys(STRESS_UNITS).map(u => (
+                <option key={u} value={u} className="bg-slate-900">{u}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center px-2">
           <label className="text-sm opacity-70">إجهاد الخضوع (Fy)</label>
           <div className="flex items-center gap-2" dir="ltr">
-            <span className="text-xs opacity-50 font-mono">MPa</span>
             <input 
               type="number" 
               value={fy}
               onChange={(e) => setFy(e.target.value)}
-              className="input-box !py-1 w-[90px] text-center font-mono text-blue-300 border-blue-500/20 focus:border-blue-500 focus:shadow-[0_0_10px_rgba(59,130,246,0.3)] outline-none"
+              className="input-box !py-1 w-[120px] text-center font-mono text-blue-300 border-blue-500/20 focus:border-blue-500 focus:shadow-[0_0_10px_rgba(59,130,246,0.3)] outline-none"
             />
           </div>
         </div>
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center px-2">
           <label className="text-sm opacity-70">إجهاد الكسر (Fu)</label>
           <div className="flex items-center gap-2" dir="ltr">
-             <span className="text-xs opacity-50 font-mono">MPa</span>
             <input 
               type="number" 
               value={fu}
               onChange={(e) => setFu(e.target.value)}
-              className="input-box !py-1 w-[90px] text-center font-mono text-blue-300 border-blue-500/20 focus:border-blue-500 focus:shadow-[0_0_10px_rgba(59,130,246,0.3)] outline-none"
+              className="input-box !py-1 w-[120px] text-center font-mono text-blue-300 border-blue-500/20 focus:border-blue-500 focus:shadow-[0_0_10px_rgba(59,130,246,0.3)] outline-none"
             />
           </div>
         </div>
 
         <div className="h-[1px] bg-blue-500/20 my-5"></div>
 
-        <div className="grid grid-cols-1 gap-4">
-          <PropertyBox label="معاير المرونة (Es)" valueBase={calcValues.Es} type="stress" themeColor="blue" equation="200,000 MPa" />
-          <PropertyBox label="معاير القص (G)" valueBase={calcValues.G} type="stress" themeColor="blue" equation="G = Es / 2(1+v)" />
+        <div className="grid grid-cols-1 gap-4 flex-1">
+          <PropertyBox label="معاير المرونة (Es)" valueBase={calcValues.Es} type="stress" themeColor="blue" equation="200,000 MPa (N/mm²)" forceUnit={inputUnit} />
+          <PropertyBox label="معاير القص (G)" valueBase={calcValues.G} type="stress" themeColor="blue" equation="G = Es / 2(1+v)" forceUnit={inputUnit} />
           <div className="grid grid-cols-2 gap-4">
-            <PropertyBox label="الكثافة" valueBase={calcValues.density} type="density" decimals={2} themeColor="blue" equation="7.85 T/m³" />
-            <PropertyBox label="بواسون" valueBase={calcValues.poisson} type="unitless" decimals={2} themeColor="blue" equation="0.3" />
+            <PropertyBox label="كثافة الحديد (γ)" valueBase={calcValues.density} type="density" decimals={2} themeColor="blue" equation="7.85 T/m³" />
+            <PropertyBox label="نسبة بواسون (ν)" valueBase={calcValues.poisson} type="unitless" decimals={2} themeColor="blue" equation="0.3" />
           </div>
         </div>
       </div>
@@ -301,9 +390,9 @@ export default function App() {
         </motion.header>
 
         {/* Main Content Grid */}
-        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
-          <ConcreteCalculator className="lg:col-span-7" />
-          <RebarCalculator className="lg:col-span-5" />
+        <main className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch w-full">
+          <ConcreteCalculator className="lg:col-span-7 h-full" />
+          <RebarCalculator className="lg:col-span-5 h-full" />
         </main>
 
         <SocialLinks />
